@@ -23,7 +23,7 @@ public class SSLSocketClient {
     systemProps.put("javax.net.ssl.trustStore", "keystore.ImportKey");
         try {
             SSLSocketFactory factory = getSSLSocketFactory("TLS");
-            SSLSocket socket = (SSLSocket)factory.createSocket("167.172.51.4", 443);
+            SSLSocket socket = (SSLSocket)factory.createSocket("localhost", 9999);
 
             /*
              * send http request

@@ -6,12 +6,17 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.*;
 
 public class Main {
 
-    public static void main(String[] args) {
+    public static void main(String[] args){
 
         // Create the system tray icon
         TrayIcon trayIcon = null;
@@ -27,9 +32,21 @@ public class Main {
             }
             // create a action listener to listen for default action executed on the tray icon
             ActionListener listener = new ActionListener() {
-                public void actionPerformed(ActionEvent e) {
+                public void actionPerformed(ActionEvent e)  {
                     // if the about button is used
-                    if (e.getActionCommand().equals("About"))
+                    if (e.getActionCommand().equals("Configure")) {
+                        try {
+                            JSONObject jo = (JSONObject) new JSONParser().parse(new FileReader("config.json"));
+
+                            JOptionPane.showMessageDialog(null, jo.get("client") + "\n" + jo.get("ListenPort") + "\n"
+                                                         + jo.get("DestinationIP") + "\n" + jo.get("DestinationPort") + "\n" + jo.get("Proto") + "\n"
+                                                         + jo.get("Key"));
+
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                    else if (e.getActionCommand().equals("About"))
                         JOptionPane.showMessageDialog(null, "Bora Gülerman\n20160702015");
                     else if (e.getActionCommand().equals("Exit"))
                         System.exit(0);
@@ -38,10 +55,13 @@ public class Main {
             // create a popup menu
             PopupMenu popup = new PopupMenu();
             // create menu item for the default action
+            MenuItem configMenuItem = new MenuItem("Configure");
+            configMenuItem.addActionListener(listener);
             MenuItem aboutMenuItem = new MenuItem("About");
             aboutMenuItem.addActionListener(listener);
             MenuItem exitMenuItem = new MenuItem("Exit");
             exitMenuItem.addActionListener(listener);
+            popup.add(configMenuItem);
             popup.add(aboutMenuItem);
             popup.add(exitMenuItem);
             /// ... add other items

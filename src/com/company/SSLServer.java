@@ -12,7 +12,7 @@ public class SSLServer {
 	public static void main(String[] args) throws Exception {
 
 		ServerSocketFactory ssf = SSLServer.getServerSocketFactory("TLS");
-		ServerSocket ss = ssf.createServerSocket(443);
+		ServerSocket ss = ssf.createServerSocket(9999);
 
 		
 		while(true) {
