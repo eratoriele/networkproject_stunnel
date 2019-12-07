@@ -16,8 +16,10 @@ import org.json.simple.parser.*;
 
 public class Main {
 
-    public static void main(String[] args){
+    public static void main(String[] args) throws IOException, ParseException {
 
+        // The config file
+        JSONObject jo = (JSONObject) new JSONParser().parse(new FileReader("config.json"));
         // Create the system tray icon
         TrayIcon trayIcon = null;
         if (SystemTray.isSupported()) {
@@ -35,16 +37,8 @@ public class Main {
                 public void actionPerformed(ActionEvent e)  {
                     // if the about button is used
                     if (e.getActionCommand().equals("Configure")) {
-                        try {
-                            JSONObject jo = (JSONObject) new JSONParser().parse(new FileReader("config.json"));
-
-                            JOptionPane.showMessageDialog(null, jo.get("client") + "\n" + jo.get("ListenPort") + "\n"
-                                                         + jo.get("DestinationIP") + "\n" + jo.get("DestinationPort") + "\n" + jo.get("Proto") + "\n"
-                                                         + jo.get("Key"));
-
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                        }
+                        ConfigMenu cm = new ConfigMenu(jo);
+                        cm.setVisible(true);
                     }
                     else if (e.getActionCommand().equals("About"))
                         JOptionPane.showMessageDialog(null, "Bora Gülerman\n20160702015");

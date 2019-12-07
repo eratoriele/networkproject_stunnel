@@ -1,8 +1,1 @@
-{
-  "client" : "yes",
-  "ListenPort" : 3500,
-  "DestinationIP" : "localhost",
-  "DestinationPort" : "9999",
-  "Proto" : "TCP",
-  "Key" : "/home/usr/key.pem"
-}
+{"DestinationIP":"localhost","Proto":"TCP","Client":"Yes","DestinationPort":9999,"ListenPort":3500,"Key":"\/home\/usr\/key.pem"}
