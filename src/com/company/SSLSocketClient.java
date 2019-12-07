@@ -15,15 +15,87 @@ import java.util.Properties;
  * It assumes that the client is not behind a firewall
  */
 
-public class SSLSocketClient {
+public class SSLSocketClient extends Thread {
 
-    public static void main(String[] args) throws Exception {
+    private String destinationIP;
+    private int destinationPort;
+    // Protocol 0 is for TCP, 1 is for UDP
+    private int proto;
+    private int listenPort;
 
-    Properties systemProps = System.getProperties();
-    systemProps.put("javax.net.ssl.trustStore", "keystore.ImportKey");
+    public SSLSocketClient(String targetip, int targetport, int Protocol, int listenport) {
+
+        destinationIP = targetip;
+        destinationPort = targetport;
+        proto = Protocol;
+        listenPort = listenport;
+    }
+
+    @Override
+    public void run() {
+
+        while (true) {
+
+            byte[] dataGet = null;
+
+            switch (proto) {
+                case 0:
+                    // TCP
+                    dataGet = tcpServer();
+                    break;
+                case 1:
+                    // UDP
+                    dataGet = udpServer();
+                    break;
+                default:
+                    System.exit(-1);
+            }
+
+            System.out.println("Recieved: " + new String(dataGet));
+
+            sendData(dataGet);
+
+        }
+
+    }
+
+    private byte[] tcpServer() {
+        try {
+            ServerSocket serverSocket = new ServerSocket(listenPort);
+            Socket incoming = serverSocket.accept();
+            DataInputStream dIN = new DataInputStream(incoming.getInputStream());
+
+            return dIN.readAllBytes();
+
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+        return new byte[0];
+    }
+
+    private byte[] udpServer() {
+        try {
+            DatagramSocket serverSocket = new DatagramSocket(listenPort);
+
+            byte[] receiveData = new byte[100];
+
+            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+            serverSocket.receive(receivePacket);
+
+            return receivePacket.getData();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return new byte[0];
+    }
+
+    private void sendData(byte[] data) {
+        Properties systemProps = System.getProperties();
+        systemProps.put("javax.net.ssl.trustStore", "keystore.ImportKey");
         try {
             SSLSocketFactory factory = getSSLSocketFactory("TLS");
-            SSLSocket socket = (SSLSocket)factory.createSocket("localhost", 9999);
+            SSLSocket socket = (SSLSocket)factory.createSocket(destinationIP, destinationPort);
 
             /*
              * send http request
@@ -47,42 +119,15 @@ public class SSLSocketClient {
              */
             socket.startHandshake();
 
-            PrintWriter out = new PrintWriter(
-                                  new BufferedWriter(
-                                  new OutputStreamWriter(
-                                  socket.getOutputStream())));
-
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-            
-            byte[] b =  "oof".getBytes();
-            
-            dos.writeInt(b.length);
+
+            dos.writeInt(data.length);
             dos.flush();
-            dos.write(b);
+            dos.write(data);
             dos.flush();
 
-            /*
-             * Make sure there were no surprises
-             */
-            if (out.checkError())
-                System.out.println(
-                    "SSLSocketClient:  java.io.PrintWriter error");
-
-            /* read response */
-            DataInputStream din = new DataInputStream(socket.getInputStream());
-
-            String inputLine;
-            //while ((inputLine = in.readLine()) != null)
-                //System.out.println(inputLine);
-            
-            int len = din.readInt();
-            byte[] by = new byte[len];
-            din.readFully(by);
-           
-            out.close();
+            dos.close();
             socket.close();
-
-            System.out.println(new String(by));
 
         } catch (Exception e) {
             e.printStackTrace();

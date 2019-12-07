@@ -1,16 +1,9 @@
 package com.company;
 
-import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Scanner;
 
 public class ServerHelper extends Thread {
 

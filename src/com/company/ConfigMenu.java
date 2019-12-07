@@ -55,6 +55,7 @@ public class ConfigMenu extends JFrame {
                     fw.write(jo.toJSONString());
                     fw.flush();
 
+                    JOptionPane.showMessageDialog(null, "Configuration updated.\nRestart the application for it to take effect");
                 }
                 catch (Exception e) {
                     e.printStackTrace();

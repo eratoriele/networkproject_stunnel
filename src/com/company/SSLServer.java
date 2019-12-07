@@ -7,20 +7,27 @@ import javax.net.*;
 import javax.net.ssl.*;
 import javax.security.cert.X509Certificate;
 
-public class SSLServer {
+public class SSLServer extends Thread {
 
-	public static void main(String[] args) throws Exception {
+	private int listenPort;
+
+	public SSLServer(int port) {
+		listenPort = port;
+	}
+
+	public void run() {
 
 		ServerSocketFactory ssf = SSLServer.getServerSocketFactory("TLS");
-		ServerSocket ss = ssf.createServerSocket(9999);
+		ServerSocket ss = null;
+		try {
+			ss = ssf.createServerSocket(listenPort);
 
-		
-		while(true) {
-			
-			Socket s = ss.accept();
-			
-			new ServerHelper(s).run();
-
+			while(true) {
+				Socket s = ss.accept();
+				new ServerHelper(s).run();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 		
 	}
