@@ -2,6 +2,7 @@ package com.company;
 
 import java.io.*;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.security.KeyStore;
 import javax.net.*;
 import javax.net.ssl.*;
@@ -23,6 +24,9 @@ public class SSLSocketClient extends Thread {
     private int proto;
     private int listenPort;
 
+    // Data received, and to be sent
+    private byte[] data;
+
     public SSLSocketClient(String targetip, int targetport, int Protocol, int listenport) {
 
         destinationIP = targetip;
@@ -33,61 +37,91 @@ public class SSLSocketClient extends Thread {
 
     @Override
     public void run() {
+        switch (proto) {
+            case 0:
+                // TCP
+                ServerSocket tcpsocket = tcpServer();
 
-        while (true) {
+                while(true) {
+                    try {
+                        Socket sck = tcpsocket.accept();
+                        DataInputStream dIN = new DataInputStream(sck.getInputStream());
 
-            byte[] dataGet = null;
+                        int len = dIN.readInt();
+                        data = new byte[len];
+                        dIN.readFully(data);
 
-            switch (proto) {
-                case 0:
-                    // TCP
-                    dataGet = tcpServer();
-                    break;
-                case 1:
-                    // UDP
-                    dataGet = udpServer();
-                    break;
-                default:
-                    System.exit(-1);
-            }
+                        sendData(data);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
 
-            System.out.println("Recieved: " + new String(dataGet));
+                //break;
+            case 1:
+                // UDP
+                DatagramSocket udpsocket = udpServer();
 
-            sendData(dataGet);
+                while (true) {
+                    try {
+                        // If the data is too large, divide the packet into smaller bits and
+                        // receive them part by part
+                        byte[] numOfPacketsByte = new byte[4];
+                        byte[] partialData = new byte[1024];
 
+                        // Receive the amount of packets
+                        DatagramPacket numOfPacketsPacket = new DatagramPacket(numOfPacketsByte, numOfPacketsByte.length);
+                        udpsocket.receive(numOfPacketsPacket);
+
+                        int numOfPackets = ByteBuffer.wrap(numOfPacketsPacket.getData()).getInt();
+                        data = new byte[1024 * numOfPackets];
+
+                        for (int i = 0; i < numOfPackets; i++) {
+                            DatagramPacket partialDataPacket = new DatagramPacket(partialData, partialData.length);
+                            udpsocket.receive(partialDataPacket);
+                            // Copy each partial data into the complete array data
+                            System.arraycopy(partialDataPacket.getData(), 0, data, i * 1024, partialDataPacket.getData().length);
+                        }
+
+                        sendData(data);
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                //break;
+            default:
+                System.exit(-1);
         }
 
     }
 
-    private byte[] tcpServer() {
+    private ServerSocket tcpServer() {
         try {
             ServerSocket serverSocket = new ServerSocket(listenPort);
-            Socket incoming = serverSocket.accept();
-            DataInputStream dIN = new DataInputStream(incoming.getInputStream());
-
-            return dIN.readAllBytes();
+            return serverSocket;
 
         } catch (Exception exception) {
             exception.printStackTrace();
         }
-        return new byte[0];
+        return null;
     }
 
-    private byte[] udpServer() {
+    private DatagramSocket udpServer() {
         try {
-            DatagramSocket serverSocket = new DatagramSocket(listenPort);
+            DatagramSocket serverSocket = new DatagramSocket(listenPort);/*
 
             byte[] receiveData = new byte[100];
 
             DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-            serverSocket.receive(receivePacket);
+            serverSocket.receive(receivePacket);*/
 
-            return receivePacket.getData();
+            return serverSocket;
 
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return new byte[0];
+        return null;
     }
 
     private void sendData(byte[] data) {

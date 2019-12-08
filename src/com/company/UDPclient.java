@@ -12,7 +12,7 @@ public class UDPclient {
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
         DatagramSocket clientSocket = new DatagramSocket();
         //clientSocket.setBroadcast(true);
-        InetAddress IPAddress = InetAddress.getByName("localhost");
+        InetAddress IPAddress = InetAddress.getByName("127.0.0.1");
         //InetAddress IPAddress = InetAddress.getByName("255.255.255.255");
         byte[] sendData;
         byte[] receiveData = new byte[100];
