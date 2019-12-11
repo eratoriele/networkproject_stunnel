@@ -84,7 +84,9 @@ public class Main {
 
         // If running a client
         if (client.equals("Yes"))
-            new SSLSocketClient(destinationIP, destinationPort, proto, listenPort).run();
+            new SSLSocketClient(destinationIP, destinationPort, proto, listenPort, key).run();
+        else
+            new SSLServer(destinationIP, destinationPort, proto, listenPort, key).run();
 
     }
 }

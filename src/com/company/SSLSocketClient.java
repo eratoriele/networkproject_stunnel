@@ -23,20 +23,21 @@ public class SSLSocketClient extends Thread {
     // Protocol 0 is for TCP, 1 is for UDP
     private int proto;
     private int listenPort;
+    private static String keyLocation;
 
-    // Data received, and to be sent
-    private byte[] data;
-
-    public SSLSocketClient(String targetip, int targetport, int Protocol, int listenport) {
+    public SSLSocketClient(String targetip, int targetport, int Protocol, int listenport, String key) {
 
         destinationIP = targetip;
         destinationPort = targetport;
         proto = Protocol;
         listenPort = listenport;
+        keyLocation = key;
     }
 
     @Override
     public void run() {
+        // Data received, and to be sent
+        byte[] data;
         switch (proto) {
             case 0:
                 // TCP
@@ -47,6 +48,7 @@ public class SSLSocketClient extends Thread {
                         Socket sck = tcpsocket.accept();
                         DataInputStream dIN = new DataInputStream(sck.getInputStream());
 
+                        // Learn how big the data is to avoid zero padding
                         int len = dIN.readInt();
                         data = new byte[len];
                         dIN.readFully(data);
@@ -64,26 +66,19 @@ public class SSLSocketClient extends Thread {
 
                 while (true) {
                     try {
-                        // If the data is too large, divide the packet into smaller bits and
-                        // receive them part by part
-                        byte[] numOfPacketsByte = new byte[4];
-                        byte[] partialData = new byte[1024];
+                        byte[] lenpack = new byte[4];
 
-                        // Receive the amount of packets
-                        DatagramPacket numOfPacketsPacket = new DatagramPacket(numOfPacketsByte, numOfPacketsByte.length);
-                        udpsocket.receive(numOfPacketsPacket);
+                        // Learn how big the data is to avoid zero padding
+                        DatagramPacket lenOfPacket = new DatagramPacket(lenpack, lenpack.length);
+                        udpsocket.receive(lenOfPacket);
+                        int len = ByteBuffer.wrap(lenOfPacket.getData()).getInt();
 
-                        int numOfPackets = ByteBuffer.wrap(numOfPacketsPacket.getData()).getInt();
-                        data = new byte[1024 * numOfPackets];
+                        data = new byte[len];
+                        DatagramPacket partialDataPacket = new DatagramPacket(data, data.length);
+                        udpsocket.receive(partialDataPacket);
+                        // Copy each partial data into the complete array data
 
-                        for (int i = 0; i < numOfPackets; i++) {
-                            DatagramPacket partialDataPacket = new DatagramPacket(partialData, partialData.length);
-                            udpsocket.receive(partialDataPacket);
-                            // Copy each partial data into the complete array data
-                            System.arraycopy(partialDataPacket.getData(), 0, data, i * 1024, partialDataPacket.getData().length);
-                        }
-
-                        sendData(data);
+                        sendData(partialDataPacket.getData());
                     }
                     catch (Exception e) {
                         e.printStackTrace();
@@ -98,8 +93,7 @@ public class SSLSocketClient extends Thread {
 
     private ServerSocket tcpServer() {
         try {
-            ServerSocket serverSocket = new ServerSocket(listenPort);
-            return serverSocket;
+            return new ServerSocket(listenPort);
 
         } catch (Exception exception) {
             exception.printStackTrace();
@@ -109,14 +103,8 @@ public class SSLSocketClient extends Thread {
 
     private DatagramSocket udpServer() {
         try {
-            DatagramSocket serverSocket = new DatagramSocket(listenPort);/*
 
-            byte[] receiveData = new byte[100];
-
-            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-            serverSocket.receive(receivePacket);*/
-
-            return serverSocket;
+            return new DatagramSocket(listenPort);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -181,7 +169,7 @@ public class SSLSocketClient extends Thread {
 		        kmf = KeyManagerFactory.getInstance("SunX509");
 		        ks = KeyStore.getInstance("JKS");
 
-		        ks.load(new FileInputStream("keystore.ImportKey"), passphrase);
+		        ks.load(new FileInputStream(keyLocation), passphrase);
 		        kmf.init(ks, passphrase);
 
 			ctx.init(kmf.getKeyManagers(), null, null);

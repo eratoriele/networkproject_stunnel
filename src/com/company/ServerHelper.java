@@ -1,25 +1,29 @@
 package com.company;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.Socket;
 
 public class ServerHelper extends Thread {
 
-	Socket s;
+	private String destinationIP;
+	private int destinationPort;
+	private Socket s;
+	private int proto;
 	
-	public ServerHelper(Socket sock) {
+	public ServerHelper(Socket sock, String targetip, int targetport, int protocol) {
 		s = sock;
+		destinationIP = targetip;
+		destinationPort = targetport;
+		proto = protocol;
 	}
 	
 	@Override
 	public void run() {
-		
-		DataOutputStream dOS;
-		try {
-			dOS = new DataOutputStream(s.getOutputStream());
 
+		try {
 			byte[] b = null;
 			
 			DataInputStream din = new DataInputStream(s.getInputStream());
@@ -28,15 +32,29 @@ public class ServerHelper extends Thread {
 			b = new byte[len];
 			din.readFully(b, 0, b.length);
 			
-			System.out.println("From " + s.getInetAddress() + ":" + s.getPort() + " sent: " + new String(b));
+			System.out.println("From " + s.getInetAddress() + ":" + s.getPort() + " => " + new String(b));
 
-			dOS.writeInt(b.length);
-			dOS.flush();
-			dOS.write(b);
-			dOS.flush();
+			switch(proto) {
+				case 0:
+					//TCP
+					Socket ts = new Socket(destinationIP, destinationPort);
+					DataOutputStream dOS = new DataOutputStream(ts.getOutputStream());
+					dOS.write(b);
+					dOS.flush();
+					dOS.close();
+					ts.close();
+					break;
+				case 1:
+					//UDP
+					DatagramPacket datapack = new DatagramPacket(b, b.length, InetAddress.getByName(destinationIP), destinationPort);
+					DatagramSocket ds = new DatagramSocket();
+					ds.send(datapack);
+					ds.close();
+					break;
+				default:
+					System.exit(-1);
+			}
 
-
-		
 			s.close();
 			
 		} catch (IOException e) {
