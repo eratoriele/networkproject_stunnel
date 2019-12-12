@@ -18,8 +18,8 @@ import java.util.Properties;
 
 public class SSLSocketClient extends Thread {
 
-    private String destinationIP;
-    private int destinationPort;
+    private static String destinationIP;
+    private static int destinationPort;
     // Protocol 0 is for TCP, 1 is for UDP
     private int proto;
     private int listenPort;
@@ -37,52 +37,42 @@ public class SSLSocketClient extends Thread {
     @Override
     public void run() {
         // Data received, and to be sent
-        byte[] data;
+        byte[] data = new byte[0];
         switch (proto) {
             case 0:
                 // TCP
                 ServerSocket tcpsocket = tcpServer();
 
                 while(true) {
+                    Socket sck = null;
                     try {
-                        Socket sck = tcpsocket.accept();
-                        DataInputStream dIN = new DataInputStream(sck.getInputStream());
-
-                        // Learn how big the data is to avoid zero padding
-                        int len = dIN.readInt();
-                        data = new byte[len];
-                        dIN.readFully(data);
-
-                        sendData(data);
+                        sck = tcpsocket.accept();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                }
 
+                    new tcpserverthread(sck, data).run();
+                }
                 //break;
             case 1:
                 // UDP
                 DatagramSocket udpsocket = udpServer();
 
                 while (true) {
+
+                    byte[] lenpack = new byte[4];
+
+                    // Learn how big the data is to avoid zero padding
+                    DatagramPacket lenOfPacket = new DatagramPacket(lenpack, lenpack.length);
                     try {
-                        byte[] lenpack = new byte[4];
-
-                        // Learn how big the data is to avoid zero padding
-                        DatagramPacket lenOfPacket = new DatagramPacket(lenpack, lenpack.length);
                         udpsocket.receive(lenOfPacket);
-                        int len = ByteBuffer.wrap(lenOfPacket.getData()).getInt();
-
-                        data = new byte[len];
-                        DatagramPacket partialDataPacket = new DatagramPacket(data, data.length);
-                        udpsocket.receive(partialDataPacket);
-                        // Copy each partial data into the complete array data
-
-                        sendData(partialDataPacket.getData());
-                    }
-                    catch (Exception e) {
+                    } catch (IOException e) {
                         e.printStackTrace();
                     }
+                    int len = ByteBuffer.wrap(lenOfPacket.getData()).getInt();
+
+                    new udpserverthread(udpsocket, data, len).run();
+
                 }
                 //break;
             default:
@@ -112,7 +102,7 @@ public class SSLSocketClient extends Thread {
         return null;
     }
 
-    private void sendData(byte[] data) {
+    public static void sendData(byte[] data) {
         Properties systemProps = System.getProperties();
         systemProps.put("javax.net.ssl.trustStore", "keystore.ImportKey");
         try {
@@ -184,4 +174,60 @@ public class SSLSocketClient extends Thread {
 		}
 		return null;
         }
+}
+
+class tcpserverthread extends Thread {
+
+    private Socket sck;
+    private byte[] data;
+
+    public tcpserverthread (Socket sck, byte[] data) {
+        this.sck = sck;
+        this.data = data;
+    }
+
+    @Override
+    public void run() {
+        DataInputStream dIN = null;
+        try {
+            dIN = new DataInputStream(sck.getInputStream());
+
+            // Learn how big the data is to avoid zero padding
+            int len = dIN.readInt();
+            data = new byte[len];
+            dIN.readFully(data);
+
+            SSLSocketClient.sendData(data);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+class udpserverthread extends Thread {
+
+    private DatagramSocket udpsocket;
+    private byte[] data;
+    private int lenOfPacket;
+
+    public udpserverthread (DatagramSocket udpsocket, byte[] data, int lenOfPacket) {
+        this.udpsocket = udpsocket;
+        this.data = data;
+        this.lenOfPacket = lenOfPacket;
+    }
+
+    @Override
+    public void run() {
+
+        data = new byte[lenOfPacket];
+        DatagramPacket partialDataPacket = new DatagramPacket(data, data.length);
+        try {
+            udpsocket.receive(partialDataPacket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        SSLSocketClient.sendData(partialDataPacket.getData());
+    }
 }
