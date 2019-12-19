@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="networkproject_stunnel:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/networkproject_stunnel_jar</output-path>
+    <root id="archive" name="networkproject_stunnel.jar">
+      <element id="module-output" name="networkproject_stunnel" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/json-simple-1.1.1.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

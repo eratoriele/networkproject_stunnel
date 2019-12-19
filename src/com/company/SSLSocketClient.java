@@ -141,6 +141,9 @@ public class SSLSocketClient extends Thread {
             dos.close();
             socket.close();
 
+            // Signify to the trayicon that the connection is closed, so it can change the color
+            TrayIconSettings.decreaseactivity();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -190,6 +193,9 @@ class tcpserverthread extends Thread {
     public void run() {
         DataInputStream dIN = null;
         try {
+            // Signify to the trayicon that the connection is opened, so it can change the color
+            TrayIconSettings.increaseactivity();
+
             dIN = new DataInputStream(sck.getInputStream());
 
             // Learn how big the data is to avoid zero padding
@@ -219,6 +225,8 @@ class udpserverthread extends Thread {
 
     @Override
     public void run() {
+        // Signify to the trayicon that the connection is opened, so it can change the color
+        TrayIconSettings.increaseactivity();
 
         data = new byte[lenOfPacket];
         DatagramPacket partialDataPacket = new DatagramPacket(data, data.length);
