@@ -37,7 +37,6 @@ public class SSLSocketClient extends Thread {
     @Override
     public void run() {
         // Data received, and to be sent
-        byte[] data = new byte[0];
         switch (proto) {
             case 0:
                 // TCP
@@ -51,7 +50,7 @@ public class SSLSocketClient extends Thread {
                         e.printStackTrace();
                     }
 
-                    new tcpserverthread(sck, data).run();
+                    new tcpserverthread(sck, destinationIP, destinationPort, keyLocation).run();
                 }
                 //break;
             case 1:
@@ -70,7 +69,7 @@ public class SSLSocketClient extends Thread {
                         e.printStackTrace();
                     }
 
-                    new udpserverthread(udpsocket, data, lenOfPacket).run();
+                    new udpserverthread(udpsocket, lenOfPacket, destinationIP, destinationPort, keyLocation).run();
 
                 }
                 //break;
@@ -101,54 +100,7 @@ public class SSLSocketClient extends Thread {
         return null;
     }
 
-    public static void sendData(byte[] data) {
-        Properties systemProps = System.getProperties();
-        systemProps.put("javax.net.ssl.trustStore", "keystore.ImportKey");
-        try {
-            SSLSocketFactory factory = getSSLSocketFactory("TLS");
-            SSLSocket socket = (SSLSocket)factory.createSocket(destinationIP, destinationPort);
-
-            /*
-             * send http request
-             *
-             * Before any application data is sent or received, the
-             * SSL socket will do SSL handshaking first to set up
-             * the security attributes.
-             *
-             * SSL handshaking can be initiated by either flushing data
-             * down the pipe, or by starting the handshaking by hand.
-             *
-             * Handshaking is started manually in this example because
-             * PrintWriter catches all IOExceptions (including
-             * SSLExceptions), sets an internal error flag, and then
-             * returns without rethrowing the exception.
-             *
-             * Unfortunately, this means any error messages are lost,
-             * which caused lots of confusion for others using this
-             * code.  The only way to tell there was an error is to call
-             * PrintWriter.checkError().
-             */
-            socket.startHandshake();
-
-            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-
-            dos.writeInt(data.length);
-            dos.flush();
-            dos.write(data);
-            dos.flush();
-
-            dos.close();
-            socket.close();
-
-            // Signify to the trayicon that the connection is closed, so it can change the color
-            TrayIconSettings.decreaseactivity();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-	private static SSLSocketFactory getSSLSocketFactory(String type) {
+	public static SSLSocketFactory getSSLSocketFactory(String type) {
 		if (type.equals("TLS")) {
 		    SocketFactory ssf = null;
 		    try {
@@ -182,30 +134,81 @@ class tcpserverthread extends Thread {
 
     private Socket sck;
     private byte[] data;
+    private String destinationIP;
+    private int destinationPort;
+    private String keyLocation;
 
-    public tcpserverthread (Socket sck, byte[] data) {
+    public tcpserverthread (Socket sck, String destinationIP, int destinationPort, String keyLocation) {
         this.sck = sck;
-        this.data = data;
+        this.destinationIP = destinationIP;
+        this.destinationPort = destinationPort;
+        this.keyLocation = keyLocation;
     }
 
     @Override
     public void run() {
-        DataInputStream dIN = null;
+        SSLSocket socket = null;
+        DataOutputStream dos = null;
+
+        Properties systemProps = System.getProperties();
+        systemProps.put("javax.net.ssl.trustStore", keyLocation);
         try {
-            // Signify to the trayicon that the connection is opened, so it can change the color
-            TrayIconSettings.increaseactivity();
+            DataInputStream dIN = new DataInputStream(sck.getInputStream());
+            SSLSocketFactory factory = SSLSocketClient.getSSLSocketFactory("TLS");
+            socket = (SSLSocket)factory.createSocket(destinationIP, destinationPort);
 
-            dIN = new DataInputStream(sck.getInputStream());
+            /*
+             * send http request
+             *
+             * Before any application data is sent or received, the
+             * SSL socket will do SSL handshaking first to set up
+             * the security attributes.
+             *
+             * SSL handshaking can be initiated by either flushing data
+             * down the pipe, or by starting the handshaking by hand.
+             *
+             * Handshaking is started manually in this example because
+             * PrintWriter catches all IOExceptions (including
+             * SSLExceptions), sets an internal error flag, and then
+             * returns without rethrowing the exception.
+             *
+             * Unfortunately, this means any error messages are lost,
+             * which caused lots of confusion for others using this
+             * code.  The only way to tell there was an error is to call
+             * PrintWriter.checkError().
+             */
+            socket.startHandshake();
 
-            // Learn how big the data is to avoid zero padding
-            int len = dIN.readInt();
-            data = new byte[len];
-            dIN.readFully(data);
+            dos = new DataOutputStream(socket.getOutputStream());
 
-            SSLSocketClient.sendData(data);
+            while (true) {
+                // Learn how big the data is to avoid zero padding
+                int len = dIN.readInt();
+                data = new byte[len];
+                dIN.readFully(data);
 
-        } catch (IOException e) {
+                // Signify to the trayicon that the connection is opened, so it can change the color
+                TrayIconSettings.increaseactivity();
+
+                // Send the recieved data until application is dropped, or an exception occurs
+                dos.writeInt(data.length);
+                dos.flush();
+                dos.write(data);
+                dos.flush();
+                // Signify to the trayicon that the connection is closed, so it can change the color
+                TrayIconSettings.decreaseactivity();
+            }
+
+        } catch (Exception e) {
             e.printStackTrace();
+            // catch inside a catch is dumb, but whatever
+            try {
+                dos.close();
+                socket.close();
+                sck.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
     }
 }
@@ -215,26 +218,82 @@ class udpserverthread extends Thread {
     private DatagramSocket udpsocket;
     private byte[] data;
     private int lenOfPacket;
+    private String destinationIP;
+    private int destinationPort;
+    private String keyLocation;
 
-    public udpserverthread (DatagramSocket udpsocket, byte[] data, DatagramPacket lenOfPacket) {
+    public udpserverthread (DatagramSocket udpsocket, DatagramPacket lenOfPacket, String destinationIP, int destinationPort, String keyLocation) {
         this.udpsocket = udpsocket;
-        this.data = data;
         this.lenOfPacket = ByteBuffer.wrap(lenOfPacket.getData()).getInt();
+        data = new byte[this.lenOfPacket];
+        this.destinationIP = destinationIP;
+        this.destinationPort = destinationPort;
+        this.keyLocation = keyLocation;
     }
 
     @Override
     public void run() {
-        // Signify to the trayicon that the connection is opened, so it can change the color
-        TrayIconSettings.increaseactivity();
+        SSLSocket socket = null;
+        DataOutputStream dos = null;
 
-        data = new byte[lenOfPacket];
-        DatagramPacket partialDataPacket = new DatagramPacket(data, data.length);
+        Properties systemProps = System.getProperties();
+        systemProps.put("javax.net.ssl.trustStore", keyLocation);
         try {
-            udpsocket.receive(partialDataPacket);
-        } catch (IOException e) {
+            SSLSocketFactory factory = SSLSocketClient.getSSLSocketFactory("TLS");
+            socket = (SSLSocket)factory.createSocket(destinationIP, destinationPort);
+
+            /*
+             * send http request
+             *
+             * Before any application data is sent or received, the
+             * SSL socket will do SSL handshaking first to set up
+             * the security attributes.
+             *
+             * SSL handshaking can be initiated by either flushing data
+             * down the pipe, or by starting the handshaking by hand.
+             *
+             * Handshaking is started manually in this example because
+             * PrintWriter catches all IOExceptions (including
+             * SSLExceptions), sets an internal error flag, and then
+             * returns without rethrowing the exception.
+             *
+             * Unfortunately, this means any error messages are lost,
+             * which caused lots of confusion for others using this
+             * code.  The only way to tell there was an error is to call
+             * PrintWriter.checkError().
+             */
+            socket.startHandshake();
+
+            dos = new DataOutputStream(socket.getOutputStream());
+
+            while (true) {
+                DatagramPacket partialDataPacket = new DatagramPacket(data, data.length);
+                udpsocket.receive(partialDataPacket);
+
+                // Signify to the trayicon that the connection is opened, so it can change the color
+                TrayIconSettings.increaseactivity();
+
+                // Send the recieved data until application is dropped, or an exception occurs
+                dos.writeInt(data.length);
+                dos.flush();
+                dos.write(data);
+                dos.flush();
+                // Signify to the trayicon that the connection is closed, so it can change the color
+                TrayIconSettings.decreaseactivity();
+            }
+
+
+        } catch (Exception e) {
             e.printStackTrace();
+            // catch inside a catch is dumb, but whatever
+            try {
+                dos.close();
+                socket.close();
+                udpsocket.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
 
-        SSLSocketClient.sendData(partialDataPacket.getData());
     }
 }
