@@ -12,12 +12,6 @@ import java.security.cert.X509Certificate;
 import java.security.cert.CertificateException;
 import java.util.Properties;
 
-/*
- * This example demostrates how to use a SSLSocket as client to
- * send a HTTP request and get response from an HTTPS server.
- * It assumes that the client is not behind a firewall
- */
-
 public class SSLSocketClient extends Thread {
 
     private static String destinationIP;
@@ -69,18 +63,7 @@ public class SSLSocketClient extends Thread {
                     e.printStackTrace();
                 }
 
-               /* while (true) {
-
-                    byte[] empty = new byte[1];
-                    DatagramPacket emptyPacket = new DatagramPacket(empty, 1);
-                    try {
-                        udpsocket.receive(emptyPacket);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }*/
-
-                    new udpserverthread(udpsocket, destinationIP, destinationPort, keyLocation).run();
-                //}
+                new udpserverthread(udpsocket, destinationIP, destinationPort, keyLocation).run();
 
                 break;
             default:
@@ -185,6 +168,9 @@ class tcpserverthread extends Thread {
                 dos.flush();
                 dos.write(data);
                 dos.flush();
+
+                if (new String(data).equals("close_ssl"))
+                    break;
 
                 // Signify to the trayicon that the connection is closed, so it can change the color
                 if (SystemTray.isSupported())

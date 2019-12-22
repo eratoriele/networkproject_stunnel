@@ -48,8 +48,9 @@ public class ServerHelper extends Thread {
 						//TCP
 						Socket ts = new Socket(destinationIP, destinationPort);
 						DataOutputStream dOS = new DataOutputStream(ts.getOutputStream());
+
 						// send the length first
-                        dOS.writeInt(len);
+                        dOS.writeInt(b.length);
                         dOS.flush();
                         // then data itself
 						dOS.write(b);

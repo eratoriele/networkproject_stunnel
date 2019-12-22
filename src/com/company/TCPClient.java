@@ -11,12 +11,16 @@ class TCPClient {
         DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
         sentence = "a";
         //while (true) {
-        for (int i = 0; i < 25; i++) {
+        for (int i = 0; i < 5; i++) {
             sentence = sentence.concat("a");
             outToServer.writeInt(sentence.getBytes().length);
             outToServer.write(sentence.getBytes());
             Thread.sleep(250);
         }
+        sentence = "close_ssl";
+
+        outToServer.writeInt(sentence.getBytes().length);
+        outToServer.write(sentence.getBytes());
         //}
         //clientSocket.close();
     }
