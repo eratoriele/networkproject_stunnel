@@ -69,9 +69,8 @@ public class SSLSocketClient extends Thread {
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                    int len = ByteBuffer.wrap(lenOfPacket.getData()).getInt();
 
-                    new udpserverthread(udpsocket, data, len).run();
+                    new udpserverthread(udpsocket, data, lenOfPacket).run();
 
                 }
                 //break;
@@ -217,10 +216,10 @@ class udpserverthread extends Thread {
     private byte[] data;
     private int lenOfPacket;
 
-    public udpserverthread (DatagramSocket udpsocket, byte[] data, int lenOfPacket) {
+    public udpserverthread (DatagramSocket udpsocket, byte[] data, DatagramPacket lenOfPacket) {
         this.udpsocket = udpsocket;
         this.data = data;
-        this.lenOfPacket = lenOfPacket;
+        this.lenOfPacket = ByteBuffer.wrap(lenOfPacket.getData()).getInt();
     }
 
     @Override
