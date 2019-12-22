@@ -1,11 +1,13 @@
 package com.company;
 
+import java.awt.*;
 import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.security.KeyStore;
 import javax.net.*;
 import javax.net.ssl.*;
+import javax.xml.crypto.Data;
 import java.security.cert.X509Certificate;
 import java.security.cert.CertificateException;
 import java.util.Properties;
@@ -40,7 +42,12 @@ public class SSLSocketClient extends Thread {
         switch (proto) {
             case 0:
                 // TCP
-                ServerSocket tcpsocket = tcpServer();
+                ServerSocket tcpsocket = null;
+                try {
+                    tcpsocket = new ServerSocket(listenPort);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
 
                 while(true) {
                     Socket sck = null;
@@ -55,49 +62,31 @@ public class SSLSocketClient extends Thread {
                 //break;
             case 1:
                 // UDP
-                DatagramSocket udpsocket = udpServer();
+                DatagramSocket udpsocket = null;
+                try {
+                    udpsocket = new DatagramSocket(listenPort);
+                } catch (SocketException e) {
+                    e.printStackTrace();
+                }
 
-                while (true) {
+               /* while (true) {
 
-                    byte[] lenpack = new byte[4];
-
-                    // Learn how big the data is to avoid zero padding
-                    DatagramPacket lenOfPacket = new DatagramPacket(lenpack, lenpack.length);
+                    byte[] empty = new byte[1];
+                    DatagramPacket emptyPacket = new DatagramPacket(empty, 1);
                     try {
-                        udpsocket.receive(lenOfPacket);
+                        udpsocket.receive(emptyPacket);
                     } catch (IOException e) {
                         e.printStackTrace();
-                    }
+                    }*/
 
-                    new udpserverthread(udpsocket, lenOfPacket, destinationIP, destinationPort, keyLocation).run();
+                    new udpserverthread(udpsocket, destinationIP, destinationPort, keyLocation).run();
+                //}
 
-                }
-                //break;
+                break;
             default:
                 System.exit(-1);
         }
 
-    }
-
-    private ServerSocket tcpServer() {
-        try {
-            return new ServerSocket(listenPort);
-
-        } catch (Exception exception) {
-            exception.printStackTrace();
-        }
-        return null;
-    }
-
-    private DatagramSocket udpServer() {
-        try {
-
-            return new DatagramSocket(listenPort);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 
 	public static SSLSocketFactory getSSLSocketFactory(String type) {
@@ -181,34 +170,35 @@ class tcpserverthread extends Thread {
 
             dos = new DataOutputStream(socket.getOutputStream());
 
-            while (true) {
+            while (!sck.isClosed()) {
                 // Learn how big the data is to avoid zero padding
                 int len = dIN.readInt();
                 data = new byte[len];
                 dIN.readFully(data);
 
                 // Signify to the trayicon that the connection is opened, so it can change the color
-                TrayIconSettings.increaseactivity();
+                if (SystemTray.isSupported())
+                    TrayIconSettings.increaseactivity();
 
-                // Send the recieved data until application is dropped, or an exception occurs
+                // Send the received data until application is dropped, or an exception occurs
                 dos.writeInt(data.length);
                 dos.flush();
                 dos.write(data);
                 dos.flush();
+
                 // Signify to the trayicon that the connection is closed, so it can change the color
-                TrayIconSettings.decreaseactivity();
+                if (SystemTray.isSupported())
+                    TrayIconSettings.decreaseactivity();
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-            // catch inside a catch is dumb, but whatever
-            try {
-                dos.close();
-                socket.close();
-                sck.close();
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
+        }
+        try {
+            dos.close();
+            socket.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
     }
 }
@@ -217,15 +207,12 @@ class udpserverthread extends Thread {
 
     private DatagramSocket udpsocket;
     private byte[] data;
-    private int lenOfPacket;
     private String destinationIP;
     private int destinationPort;
     private String keyLocation;
 
-    public udpserverthread (DatagramSocket udpsocket, DatagramPacket lenOfPacket, String destinationIP, int destinationPort, String keyLocation) {
+    public udpserverthread (DatagramSocket udpsocket, String destinationIP, int destinationPort, String keyLocation) {
         this.udpsocket = udpsocket;
-        this.lenOfPacket = ByteBuffer.wrap(lenOfPacket.getData()).getInt();
-        data = new byte[this.lenOfPacket];
         this.destinationIP = destinationIP;
         this.destinationPort = destinationPort;
         this.keyLocation = keyLocation;
@@ -266,33 +253,39 @@ class udpserverthread extends Thread {
 
             dos = new DataOutputStream(socket.getOutputStream());
 
+            byte[] datalen = new byte[4];
+
             while (true) {
-                DatagramPacket partialDataPacket = new DatagramPacket(data, data.length);
-                udpsocket.receive(partialDataPacket);
+                DatagramPacket dataPacketlen = new DatagramPacket(datalen, 4);
+                udpsocket.receive(dataPacketlen);
+                data = new byte[ByteBuffer.wrap(dataPacketlen.getData()).getInt()];
+                DatagramPacket dataPacket = new DatagramPacket(data, data.length);
+                udpsocket.receive(dataPacket);
 
                 // Signify to the trayicon that the connection is opened, so it can change the color
-                TrayIconSettings.increaseactivity();
+                if (SystemTray.isSupported())
+                    TrayIconSettings.increaseactivity();
 
                 // Send the recieved data until application is dropped, or an exception occurs
                 dos.writeInt(data.length);
                 dos.flush();
                 dos.write(data);
                 dos.flush();
-                // Signify to the trayicon that the connection is closed, so it can change the color
-                TrayIconSettings.decreaseactivity();
-            }
+                Thread.sleep(100);
 
+                // Signify to the trayicon that the connection is closed, so it can change the color
+                if (SystemTray.isSupported())
+                    TrayIconSettings.decreaseactivity();
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
-            // catch inside a catch is dumb, but whatever
-            try {
-                dos.close();
-                socket.close();
-                udpsocket.close();
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
+        }
+        try {
+            dos.close();
+            socket.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
 
     }
